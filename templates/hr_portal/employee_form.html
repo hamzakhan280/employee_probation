@@ -1,0 +1,66 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ employee|default:"New" }} Employee{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8 max-w-4xl">
+    <div class="bg-white rounded-2xl shadow-xl p-6 mb-8">
+        <h2 class="text-2xl font-bold text-gray-800 mb-6 pb-2 border-b border-gray-200">{% if employee %}Edit Employee{% else %}Add New Employee{% endif %}</h2>
+
+        <form method="post" class="space-y-6">
+            {% csrf_token %}
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <label for="{{ form.employee_id.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">Employee ID:</label>
+                    {{ form.employee_id }}
+                    {% if form.employee_id.errors %}
+                        <div class="text-red-600 text-sm mt-1">{{ form.employee_id.errors }}</div>
+                    {% endif %}
+                </div>
+
+                <div>
+                    <label for="{{ form.name.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">Name:</label>
+                    {{ form.name }}
+                    {% if form.name.errors %}
+                        <div class="text-red-600 text-sm mt-1">{{ form.name.errors }}</div>
+                    {% endif %}
+                </div>
+
+                <div>
+                    <label for="{{ form.designation.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">Designation:</label>
+                    {{ form.designation }}
+                    {% if form.designation.errors %}
+                        <div class="text-red-600 text-sm mt-1">{{ form.designation.errors }}</div>
+                    {% endif %}
+                </div>
+
+                <div>
+                    <label for="{{ form.department.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">Department:</label>
+                    {{ form.department }}
+                    {% if form.department.errors %}
+                        <div class="text-red-600 text-sm mt-1">{{ form.department.errors }}</div>
+                    {% endif %}
+                </div>
+
+                <div>
+                    <label for="{{ form.start_date.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">Start Date:</label>
+                    {{ form.start_date }}
+                    {% if form.start_date.errors %}
+                        <div class="text-red-600 text-sm mt-1">{{ form.start_date.errors }}</div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="flex flex-wrap gap-4 pt-4">
+                <button type="submit" class="px-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors duration-200">
+                    {% if employee %}Update{% else %}Create{% endif %} Employee
+                </button>
+                <a href="{% url 'employee_list' %}" class="px-6 py-3 bg-gray-500 text-white font-medium rounded-lg hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-colors duration-200">
+                    Cancel
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

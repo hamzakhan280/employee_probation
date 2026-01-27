@@ -1,0 +1,32 @@
+from django.urls import path
+from . import views
+
+urlpatterns = [
+    path('', views.dashboard, name='dashboard'),
+    path('employees/', views.employee_list, name='employee_list'),
+    path('employees/create/', views.employee_create, name='employee_create'),
+    path('employees/import/', views.import_employees_from_excel, name='import_employees'),
+    path('employees/export/', views.export_employees_to_excel, name='export_employees'),
+    path('employees/<str:employee_id>/edit/', views.employee_edit, name='employee_edit'),
+    path('employees/<str:employee_id>/delete/', views.employee_delete, name='employee_delete'),
+    path('employees/<str:employee_id>/send-department-email/', views.send_department_email, name='send_department_email'),
+    path('documents/', views.document_management, name='document_management'),
+    path('documents/upload-ajax/', views.upload_document_ajax, name='upload_document_ajax'),
+    path('documents/<int:document_id>/download/', views.download_document, name='download_document'),
+    path('ai-assistant/', views.ai_assistant, name='ai_assistant'),
+    path('api/generate-document/', views.generate_document, name='generate_document'),
+    path('api/employees/', views.get_employees_api, name='get_employees_api'),
+    path('templates/', views.template_management, name='template_management'),
+    path('templates/<int:template_id>/edit/', views.template_edit, name='template_edit'),
+    path('templates/<int:template_id>/delete/', views.template_delete, name='template_delete'),
+    path('templates/<int:template_id>/content-edit/', views.template_content_edit, name='template_content_edit'),
+    path('employees/<str:employee_id>/generate/<int:template_id>/', views.generate_document_from_template, name='generate_document_from_template'),
+    path('employees/<str:employee_id>/probation-approval/', views.probation_approval, name='probation_approval'),
+    path('employees/<str:employee_id>/probation-noting/', views.probation_noting, name='probation_noting'),
+    path('employees/<str:employee_id>/probation-letter/', views.probation_letter, name='probation_letter'),
+    path('employees/<str:employee_id>/generate-probation-confirmation/', views.generate_probation_confirmation_letter, name='generate_probation_confirmation'),
+    path('employees/<str:employee_id>/generate-probation-extension/', views.generate_probation_extension_letter, name='generate_probation_extension'),
+    path('send-probation-email/', views.send_probation_notification_email, name='send_probation_email'),
+    path('employees/<str:employee_id>/probation-approval-ajax/', views.probation_approval_ajax, name='probation_approval_ajax'),
+    path('send-employees-list-to-hrs/', views.send_employees_list_to_hrs, name='send_employees_list_to_hrs'),
+]
