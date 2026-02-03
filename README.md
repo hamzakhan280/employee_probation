@@ -28,7 +28,7 @@ An attractive and responsive HR management system with AI assistant for document
    ```bash
    heroku config:set SECRET_KEY="your-secret-key"
    heroku config:set DEBUG=False
-   heroku config:set EMAIL_HOST_USER="hamzamarwat46@gmail.com"
+   heroku config:set EMAIL_HOST_USER="your-email@gmail.com"
    heroku config:set EMAIL_HOST_PASSWORD="your-app-password"
    ```
 6. Deploy the app:
@@ -42,14 +42,15 @@ An attractive and responsive HR management system with AI assistant for document
 
 ### Deploy to PythonAnywhere
 
+#### Option 1: Manual Setup
 1. Create an account at [https://pythonanywhere.com](https://pythonanywhere.com)
 2. Create a new web app
 3. Upload your code or clone from a repository
 4. Install dependencies:
    ```bash
-   pip3 install -r requirements.txt
+   pip3 install -r requirements_pythonanywhere.txt
    ```
-5. Set environment variables in the PythonAnywhere dashboard
+5. Set environment variables in the PythonAnywhere dashboard or .bashrc file
 6. Run migrations:
    ```bash
    python3 manage.py migrate
@@ -59,6 +60,15 @@ An attractive and responsive HR management system with AI assistant for document
    python3 manage.py collectstatic
    ```
 
+#### Option 2: Using the Setup Script
+1. Upload the `setup_pythonanywhere.py` and `requirements_pythonanywhere.txt` files to PythonAnywhere
+2. Run the setup script:
+   ```bash
+   python3 setup_pythonanywhere.py
+   ```
+
+For detailed instructions, see the PYTHONANYWHERE_DEPLOYMENT_GUIDE.md file.
+
 ### Deploy to Render
 
 1. Create an account at [https://render.com](https://render.com)
@@ -67,6 +77,16 @@ An attractive and responsive HR management system with AI assistant for document
 4. Set the build command: `pip install -r requirements.txt`
 5. Set the start command: `gunicorn hr_project.wsgi`
 6. Set environment variables in the Render dashboard
+7. Deploy!
+
+### Deploy to Railway
+
+1. Create an account at [https://railway.app](https://railway.app)
+2. Create a new project
+3. Connect to your GitHub repository
+4. Set the build command: `pip install -r requirements.txt`
+5. Set the start command: `python manage.py migrate && gunicorn hr_project.wsgi:application`
+6. Set environment variables in the Railway dashboard
 7. Deploy!
 
 ## Environment Variables
@@ -88,7 +108,8 @@ After first deployment, a default superuser will be created:
 To run locally:
 1. Install dependencies: `pip install -r requirements.txt`
 2. Run migrations: `python manage.py migrate`
-3. Start the server: `python manage.py runserver`
+3. Create a superuser: `python manage.py createsuperuser`
+4. Start the server: `python manage.py runserver`
 
 ## Support
 

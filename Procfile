@@ -1,1 +1,1 @@
-web: gunicorn hr_project.wsgi
+web: gunicorn hr_project.wsgi:application

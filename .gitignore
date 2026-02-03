@@ -19,7 +19,6 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
-MANIFEST
 
 # Virtual Environment
 venv/
@@ -31,7 +30,6 @@ ENV/
 .idea/
 *.swp
 *.swo
-*~
 
 # OS
 .DS_Store
@@ -48,13 +46,15 @@ staticfiles/
 .env
 .env.local
 .env.dev
-.env.production
+.env.prod
 
-# Celery
-celerybeat-schedule
-celerybeat.pid
+# Coverage
+.coverage
+htmlcov/
 
-# Project specific
-*.tmp
-*.bak
-*.backup
+# Pytest
+.pytest_cache/
+
+# Deployment
+*.zip
+*.tar.gz

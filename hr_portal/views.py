@@ -1175,11 +1175,24 @@ def probation_approval_ajax(request, employee_id):
         except (ValueError, TypeError):
             return JsonResponse({'success': False, 'message': 'Invalid employee ID.'})
 
-        employee = Employee.objects.get(pk=employee_id)
+        try:
+            employee = Employee.objects.get(pk=employee_id)
+        except Employee.DoesNotExist:
+            return JsonResponse({'success': False, 'message': 'Employee not found.'})
 
         if request.method == 'POST':
-            approval_status = request.POST.get('approval_status')
+            action = request.POST.get('action', '').lower()
             comments = request.POST.get('comments', '')
+            extension_months = request.POST.get('extension_months', 3)
+
+            # Map action to approval status
+            status_mapping = {
+                'approve': 'approved',
+                'reject': 'rejected',
+                'extend': 'extended'
+            }
+
+            approval_status = status_mapping.get(action, 'pending')
 
             # Create or update probation approval record
             approval, created = ProbationApproval.objects.get_or_create(
@@ -1195,12 +1208,48 @@ def probation_approval_ajax(request, employee_id):
                 approval.approval_status = approval_status
                 approval.comments = comments
                 approval.updated_at = timezone.now()
+
+                # Handle extension - update employee's end date
+                if action == 'extend':
+                    try:
+                        import datetime
+                        from django.utils import timezone
+                        current_end_date = employee.end_date
+                        new_end_date = current_end_date + datetime.timedelta(days=int(extension_months) * 30)
+                        employee.end_date = new_end_date
+                        employee.is_extended = True
+                        employee.save()
+
+                        # Update the approval record with extension info
+                        approval.extension_months = int(extension_months)
+                        approval.extended_end_date = new_end_date
+
+                    except (ValueError, TypeError):
+                        return JsonResponse({'success': False, 'message': 'Invalid extension period.'})
+
                 approval.save()
 
-            return JsonResponse({
+            # Update employee's probation status based on approval
+            if action == 'approve':
+                employee.probation_status = 'Completed'
+            elif action == 'reject':
+                employee.probation_status = 'Rejected'
+            elif action == 'extend':
+                employee.probation_status = 'Extended'
+
+            employee.save()
+
+            response_data = {
                 'success': True,
-                'message': f'Probation approval status updated to {approval.get_approval_status_display()}'
-            })
+                'message': f'Probation approval status updated to {approval.get_approval_status_display()}',
+                'action': action
+            }
+
+            # Include extended end date in response if applicable
+            if action == 'extend' and hasattr(approval, 'extended_end_date') and approval.extended_end_date:
+                response_data['extended_end_date'] = approval.extended_end_date.strftime('%Y-%m-%d')
+
+            return JsonResponse(response_data)
 
     return JsonResponse({'success': False, 'message': 'Invalid request'})
 

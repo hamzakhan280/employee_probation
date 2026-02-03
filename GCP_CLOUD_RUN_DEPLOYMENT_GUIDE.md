@@ -1,251 +1,125 @@
-# Google Cloud Platform (Cloud Run) Deployment Guide for HR Portal
+# Google Cloud Platform (GCP) Cloud Run Deployment Guide
 
-This guide explains how to deploy your HR Portal application to Google Cloud Platform using Cloud Run, which offers a generous free tier.
+## Deploying the HR Portal to GCP Cloud Run
 
-## Why Google Cloud Platform (Cloud Run)?
+### Prerequisites
+- Google Cloud Platform account with billing enabled
+- Google Cloud SDK installed locally
+- Docker installed locally
 
-- Generous free tier: 2 million requests/month, 360 CPU hours/month, 1 GB storage
-- Reliable infrastructure from Google
-- Easy scaling based on demand
-- Integrated with other Google Cloud services
-- Custom domain support
-- Robust security features
+### Steps to Deploy
 
-## Prerequisites
+1. **Set Up Your GCP Project**
+   - Create a new project in the Google Cloud Console
+   - Enable the Cloud Run API
+   - Enable the Container Registry API
 
-1. A Google Cloud Platform account (requires credit card for verification, but many services remain free)
-2. A GitHub repository with your HR Portal code
-3. Google Cloud SDK installed locally (optional but recommended)
+2. **Install and Configure Google Cloud SDK**
+   ```bash
+   # Download and install Google Cloud SDK
+   # Authenticate with your Google account
+   gcloud auth login
+   gcloud config set project YOUR_PROJECT_ID
+   ```
 
-## Step-by-Step Deployment
+3. **Prepare Your Application**
+   - Ensure your application is configured to run on port 8080 (Cloud Run requirement)
+   - Create a Dockerfile in your project root:
 
-### Step 1: Set Up Google Cloud Account
+   ```dockerfile
+   FROM python:3.12-slim
+   
+   WORKDIR /app
+   
+   COPY requirements.txt .
+   RUN pip install --no-cache-dir -r requirements.txt
+   
+   COPY . .
+   
+   # Install gunicorn if not in requirements
+   RUN pip install gunicorn
+   
+   # Expose port 8080
+   EXPOSE 8080
+   
+   # Run the application
+   CMD ["gunicorn", "--bind", "0.0.0.0:8080", "hr_project.wsgi:application"]
+   ```
 
-1. Go to https://console.cloud.google.com/
-2. Create a new Google Cloud account (requires credit card for verification)
-3. Create a new project or select an existing one
-4. Enable billing for the project (required even for free tier usage)
+4. **Build and Push Docker Image**
+   ```bash
+   # Build the Docker image
+   docker build -t gcr.io/YOUR_PROJECT_ID/hr-portal .
+   
+   # Push the image to Google Container Registry
+   docker push gcr.io/YOUR_PROJECT_ID/hr-portal
+   ```
 
-### Step 2: Enable Required APIs
+5. **Deploy to Cloud Run**
+   ```bash
+   gcloud run deploy hr-portal \
+     --image gcr.io/YOUR_PROJECT_ID/hr-portal \
+     --platform managed \
+     --region us-central1 \
+     --allow-unauthenticated \
+     --set-env-vars SECRET_KEY="your-secret-key",DEBUG=False,EMAIL_HOST_USER="your-email",EMAIL_HOST_PASSWORD="your-password",ALLOWED_HOSTS="*"
+   ```
 
-1. In your Google Cloud Console, go to "APIs & Services" → "Library"
-2. Enable the following APIs:
-   - Cloud Run API
-   - Artifact Registry API
-   - Cloud Build API
-
-### Step 3: Prepare Your Repository
-
-1. Make sure your project is in a GitHub repository
-2. Ensure all the following files are in your repository:
-   - `manage.py` (in the root of your repo)
-   - `requirements.txt` (in the root of your repo)
-   - `hr_project/settings.py` (Django settings)
-   - `hr_project/wsgi.py` (WSGI configuration)
-   - `Dockerfile` (created for containerization)
-   - All your application code
-
-### Step 4: Configure Your Django Application
-
-Update your Django settings to work in a containerized environment:
-
-1. In `settings.py`, ensure you have:
-   - Proper ALLOWED_HOSTS configuration
-   - Environment variable-based configuration
-   - Database configuration for production
-
-Example settings for GCP:
-```python
-import os
-from google.cloud.sql.connector import Connector, IPTypes
-import sqlalchemy
-
-# Detect if running on Google Cloud
-ON_GCP = os.getenv('K_SERVICE') is not None
-
-if ON_GCP:
-    # Production settings for Google Cloud
-    DEBUG = False
-    
-    # Use Cloud SQL proxy if connecting to Cloud SQL
-    if os.getenv('CLOUD_SQL_CONNECTION_NAME'):
-        # Configure for Cloud SQL
-        DATABASES = {
-            'default': {
-                'ENGINE': 'django.db.backends.postgresql',
-                'HOST': f'/cloudsql/{os.getenv("CLOUD_SQL_CONNECTION_NAME")}',
-                'USER': os.getenv('DB_USER'),
-                'PASSWORD': os.getenv('DB_PASS'),
-                'NAME': os.getenv('DB_NAME'),
-            }
-        }
-    else:
-        # Use environment variable for database URL
-        import dj_database_url
-        DATABASES = {
-            'default': dj_database_url.config(
-                default=os.getenv('DATABASE_URL', 'sqlite:///db.sqlite3')
-            )
-        }
-else:
-    # Local development settings
-    DEBUG = True
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.sqlite3',
-            'NAME': BASE_DIR / 'db.sqlite3',
-        }
-    }
-
-# Allow all hosts in Cloud Run
-ALLOWED_HOSTS = ['*']
-```
-
-### Step 5: Create a Cloud Build Configuration
-
-Create a `cloudbuild.yaml` file in your repository:
-
-```yaml
-steps:
-  # Build the container image
-  - name: 'gcr.io/cloud-builders/docker'
-    args: ['build', '-t', 'gcr.io/$PROJECT_ID/hr-portal', '.']
-  
-  # Push the container image to Container Registry
-  - name: 'gcr.io/cloud-builders/docker'
-    args: ['push', 'gcr.io/$PROJECT_ID/hr-portal']
-  
-  # Deploy container image to Cloud Run
-  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
-    entrypoint: gcloud
-    args:
-      - 'run'
-      - 'deploy'
-      - 'hr-portal'
-      - '--image'
-      - 'gcr.io/$PROJECT_ID/hr-portal'
-      - '--region'
-      - 'us-central1'
-      - '--port'
-      - '8080'
-      - '--set-env-vars'
-      - 'DEBUG=False'
-      - '--set-secrets'
-      - 'SECRET_KEY=SECRET_KEY:latest,EMAIL_HOST_USER=EMAIL_HOST_USER:latest,EMAIL_HOST_PASSWORD=EMAIL_HOST_PASSWORD:latest,OPENAI_API_KEY=OPENAI_API_KEY:latest'
-      - '--allow-unauthenticated'
-      - '--platform'
-      - 'managed'
-images:
-  - 'gcr.io/$PROJECT_ID/hr-portal'
-```
-
-### Step 6: Set Up Secret Manager (Recommended)
-
-1. In Google Cloud Console, go to "Security" → "Secret Manager"
-2. Create the following secrets:
-   - SECRET_KEY
-   - EMAIL_HOST_USER
-   - EMAIL_HOST_PASSWORD
-   - OPENAI_API_KEY
-
-### Step 7: Deploy Using Cloud Build
-
-1. In Google Cloud Console, go to "Cloud Build" → "Triggers"
-2. Create a new trigger:
-   - Name: "HR Portal Deploy"
-   - Source: Your GitHub repository
-   - Branch: `^main$` (or your default branch)
-   - Configuration type: "Cloud Build configuration file"
-   - Cloud Build configuration file location: `/cloudbuild.yaml`
-
-### Step 8: Alternative - Deploy Directly from Console
-
-1. In Google Cloud Console, go to "Cloud Run"
-2. Click "Create Service"
-3. Choose "Deploy one revision from an existing container image"
-4. If you haven't built your image yet, select "Build from source":
-   - Source repository: Your GitHub repository
-   - Dockerfile path: `./Dockerfile`
-5. Configure the service:
-   - Container port: 8080
-   - Uncheck "Allow unauthenticated invocations" if you want to restrict access
-   - Set environment variables:
+6. **Alternative: Deploy Using Cloud Console**
+   - Go to Cloud Run in the Google Cloud Console
+   - Click "Create Service"
+   - Select "Deploy one revision from an existing container image"
+   - Enter your image URL: `gcr.io/YOUR_PROJECT_ID/hr-portal`
+   - Configure the service settings:
+     - Service name: hr-portal
+     - Region: Select your preferred region
+     - Authentication: Allow unauthenticated invocations (or restrict as needed)
+     - Memory allocated: 512MB (adjust as needed)
+     - CPU allocated: 1 vCPU
+   - Add environment variables:
+     - SECRET_KEY: Your Django secret key
      - DEBUG: False
-     - Other required variables
-   - Set CPU allocation: 1 vCPU (minimum for Django)
-   - Set Memory: 512 MB or more (recommended for Django)
-   - Set maximum instances: 1 (to stay within free tier)
+     - EMAIL_HOST_USER: Your email address
+     - EMAIL_HOST_PASSWORD: Your email app password
+     - ALLOWED_HOSTS: Your Cloud Run URL
 
-### Step 9: Configure Database (Optional but Recommended)
+### Post-Deployment Steps
 
-For production use, set up Cloud SQL:
+1. **Run Initial Setup**
+   - Connect to your deployed instance or run setup commands in the container
+   - Run database migrations: `python manage.py migrate`
+   - Create a superuser: `python manage.py createsuperuser`
 
-1. In Google Cloud Console, go to "SQL"
-2. Click "Create Instance" → "PostgreSQL"
-3. Configure your instance with the free tier options
-4. Create a database and user
-5. Update your deployment to connect to Cloud SQL
+2. **Configure Domain (Optional)**
+   - In Cloud Run console, go to "Custom domains"
+   - Add your custom domain and follow the verification process
 
-### Step 10: Run Initial Setup Commands
+### Environment Variables Reference
 
-After deployment, you'll need to run Django management commands:
+- `SECRET_KEY`: Django secret key (required)
+- `DEBUG`: Set to `False` in production
+- `ALLOWED_HOSTS`: Comma-separated list of allowed hosts
+- `EMAIL_HOST_USER`: Email address for sending notifications
+- `EMAIL_HOST_PASSWORD`: App password for email account
+- `DATABASE_URL`: PostgreSQL database URL (if using Cloud SQL)
 
-1. Use Cloud Shell or local gcloud CLI:
-```bash
-gcloud run jobs execute --region=us-central1 --project=YOUR_PROJECT_ID --command="python,manage.py,migrate" hr-portal-job
-```
+### Using Cloud SQL (Recommended for Production)
 
-Or alternatively, temporarily enable Cloud Shell SSH access and run:
-```bash
-# SSH into Cloud Shell
-gcloud run services update hr-portal --add-cloudsql-instances=YOUR_INSTANCE_CONNECTION_NAME --region=us-central1
+For production deployments, consider using Cloud SQL for your database:
 
-# Run management commands
-gcloud run services update hr-portal --set-env-vars="COMMAND=migrate" --region=us-central1
-```
+1. Create a Cloud SQL instance (PostgreSQL or MySQL)
+2. Update your settings.py to use the Cloud SQL database
+3. Set the `DATABASE_URL` environment variable to your Cloud SQL connection string
 
-More commonly, you'd run these commands locally after setting up the database connection, or use Cloud Functions/Cloud Run Jobs.
+### Troubleshooting
 
-### Step 11: Access Your Application
+- Check Cloud Run logs in the Google Cloud Console for any errors
+- Ensure your application listens on port 8080
+- Verify all required environment variables are set
+- Check that your firewall rules allow connections
 
-1. In Cloud Run, find your service URL
-2. Visit your application at the provided URL
-3. Log in using the superuser credentials you created
+### Scaling
 
-## Important Notes
-
-- **Free Tier Limitations**: GCP free tier includes 2 million requests/month, 360 CPU hours/month, and 5 GB storage
-- **Billing**: Requires credit card verification, but staying within free tier limits keeps costs at $0
-- **Build Time**: The first build may take 5-10 minutes as it builds the container
-- **Environment Variables**: Use Secret Manager for sensitive information
-
-## Troubleshooting
-
-### Application won't start
-- Check the logs in Cloud Run → Logs
-- Verify your container listens on port 8080
-- Ensure all dependencies are in requirements.txt
-
-### Database issues
-- If using Cloud SQL, verify connection settings
-- Check that your database user has proper permissions
-
-### High resource usage
-- Monitor your usage in the Google Cloud Console
-- Adjust instance settings to stay within free tier limits
-
-## Updating Your Application
-
-After making changes to your code:
-1. Commit and push to your GitHub repository
-2. If using triggers, Cloud Build will automatically rebuild and redeploy
-3. Monitor the build logs to ensure the deployment succeeds
-
-## Scaling Beyond Free Tier
-
-When your application grows, GCP offers:
-- Higher compute resources
-- More storage
-- Advanced networking options
-- Premium support
-- Custom SLAs
+- Cloud Run automatically scales based on demand
+- Configure min/max instances in the Cloud Run settings if needed
+- Monitor resource usage in Cloud Monitoring

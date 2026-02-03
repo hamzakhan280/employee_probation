@@ -223,7 +223,7 @@ body {
 </div>
 
 <!-- Critical Probation Expirations with Enhanced Styling (Removed 3D from table) -->
-<div class="bg-gradient-to-br from-gray-50 to-gray-100 rounded-3xl shadow-2xl overflow-hidden mb-8 border border-gray-200 card-3d">
+<div class="bg-gradient-to-br from-gray-50 to-gray-100 rounded-3xl shadow-2xl overflow-hidden mb-8 border border-gray-200">
     <div class="p-6 bg-gradient-to-r from-red-600 to-red-800 text-white flex justify-between items-center">
         <div>
             <h3 class="text-2xl font-bold flex items-center">
@@ -233,7 +233,7 @@ body {
             <p class="opacity-90 mt-1 text-lg">Employees with probation ending in 30 days or less</p>
         </div>
         <div>
-            <button id="sendReportBtn" class="btn-3d bg-white text-red-600 hover:bg-gray-100 font-bold py-3 px-6 rounded-xl shadow-lg transition duration-300 ease-in-out transform hover:scale-105">
+            <button id="sendReportBtn" class="bg-white text-red-600 hover:bg-gray-100 font-bold py-3 px-6 rounded-xl shadow-lg transition duration-300 ease-in-out transform hover:scale-105">
                 <i class="fas fa-paper-plane mr-2"></i>Send Report to HR
             </button>
         </div>
@@ -279,7 +279,7 @@ body {
                                 focus:outline-none focus:ring-2 focus:ring-offset-2
                                 {% if employee.days_until_probation_end <= 1 %}focus:ring-red-500
                                 {% elif employee.days_until_probation_end <= 15 %}focus:ring-orange-500
-                                {% else %}focus:ring-yellow-500{% endif %} btn-3d">
+                                {% else %}focus:ring-yellow-500{% endif %}">
                                 <i class="fas fa-check-circle mr-2"></i> Review
                             </a>
                         {% else %}
@@ -497,25 +497,5 @@ body {
         }
     });
 
-    // Add 3D effect to cards on mouse move
-    document.querySelectorAll('.card-3d').forEach(card => {
-        card.addEventListener('mousemove', (e) => {
-            const cardRect = card.getBoundingClientRect();
-            const x = e.clientX - cardRect.left;
-            const y = e.clientY - cardRect.top;
-
-            const centerX = cardRect.width / 2;
-            const centerY = cardRect.height / 2;
-
-            const rotateY = (x - centerX) / 25;
-            const rotateX = (centerY - y) / 25;
-
-            card.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) translateZ(0)`;
-        });
-
-        card.addEventListener('mouseleave', () => {
-            card.style.transform = 'perspective(1000px) rotateX(0) rotateY(0) translateZ(0)';
-        });
-    });
 </script>
 {% endblock %}
