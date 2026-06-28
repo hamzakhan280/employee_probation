@@ -1,5 +1,7 @@
 from django.apps import AppConfig
 
+MANAGEMENT_COMMANDS_TO_SKIP = {'makemigrations', 'migrate', 'collectstatic', 'test'}
+
 
 class HrPortalConfig(AppConfig):
     default_auto_field = 'django.db.models.BigAutoField'
@@ -10,8 +12,7 @@ class HrPortalConfig(AppConfig):
         import sys
         from django.db.utils import OperationalError, ProgrammingError
 
-        management_commands_to_skip = {'makemigrations', 'migrate', 'collectstatic', 'test'}
-        if management_commands_to_skip.intersection(sys.argv):
+        if MANAGEMENT_COMMANDS_TO_SKIP.intersection(sys.argv):
             return
 
         if os.environ.get('RUN_MAIN') != 'true':  # Prevents running during migrations

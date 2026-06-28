@@ -797,7 +797,6 @@ def get_employees_api(request):
     employee_data = []
     for emp in employees:
         employee_data.append({
-            'id': emp.employee_id,
             'employee_id': emp.employee_id,
             'name': emp.name,
             'designation': emp.designation,
@@ -1193,7 +1192,7 @@ def probation_approval_ajax(request, employee_id):
                     new_end_date = current_end_date + datetime.timedelta(days=int(extension_months) * 30)
                     employee.extended_probation_end_date = new_end_date
                     employee.is_extended = True
-                    employee.probation_status = 'Extended'
+                    employee.probation_status = Employee.STATUS_EXTENDED
 
                     approval.extension_months = int(extension_months)
                     approval.extended_end_date = new_end_date
@@ -1204,11 +1203,11 @@ def probation_approval_ajax(request, employee_id):
 
             # Update employee's probation status based on approval
             if action == 'approve':
-                employee.probation_status = 'Completed'
+                employee.probation_status = Employee.STATUS_COMPLETED
             elif action == 'reject':
-                employee.probation_status = 'Rejected'
+                employee.probation_status = Employee.STATUS_REJECTED
             elif action == 'extend':
-                employee.probation_status = 'Extended'
+                employee.probation_status = Employee.STATUS_EXTENDED
 
             employee.save()
 

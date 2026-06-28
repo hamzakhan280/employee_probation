@@ -23,13 +23,19 @@ class Department(models.Model):
         return self.name
 
 class Employee(models.Model):
+    STATUS_ACTIVE = 'Active'
+    STATUS_ENDING_SOON = 'Ending Soon'
+    STATUS_COMPLETED = 'Completed'
+    STATUS_EXTENDED = 'Extended'
+    STATUS_REJECTED = 'Rejected'
+
     employee_id = models.CharField(max_length=20, unique=True, verbose_name="S.#")
     name = models.CharField(max_length=100)
     designation = models.CharField(max_length=100)
     department = models.ForeignKey(Department, on_delete=models.SET_NULL, null=True, blank=True)
     start_date = models.DateField()
     end_date = models.DateField(editable=False)
-    probation_status = models.CharField(max_length=20, default='Active')
+    probation_status = models.CharField(max_length=20, default=STATUS_ACTIVE)
     extended_probation_end_date = models.DateField(null=True, blank=True, help_text="New end date if probation is extended")
     is_extended = models.BooleanField(default=False, help_text="Indicates if the probation period has been extended")
 
@@ -42,16 +48,16 @@ class Employee(models.Model):
         current_end_date = self.current_end_date
 
         # Update probation status based on current date
-        if self.probation_status == 'Rejected':
-            pass
+        if self.probation_status == self.STATUS_REJECTED:
+            self.probation_status = self.STATUS_REJECTED
         elif self.is_extended and current_end_date >= date.today():
-            self.probation_status = 'Extended'
+            self.probation_status = self.STATUS_EXTENDED
         elif current_end_date < date.today():
-            self.probation_status = 'Completed'
+            self.probation_status = self.STATUS_COMPLETED
         elif self.is_probation_ending_soon:
-            self.probation_status = 'Ending Soon'
+            self.probation_status = self.STATUS_ENDING_SOON
         else:
-            self.probation_status = 'Active'
+            self.probation_status = self.STATUS_ACTIVE
 
         super().save(*args, **kwargs)
 
