@@ -746,19 +746,19 @@ def upload_document_ajax(request):
                 return JsonResponse({
                     'success': False,
                     'message': 'Employee not found.',
-                    'error': 'Employee not found.',
+                    'error': 'employee_not_found',
                 })
         else:
             return JsonResponse({
                 'success': False,
                 'message': 'Please provide an employee, title and file.',
-                'error': 'Please provide an employee, title and file.',
+                'error': 'missing_required_fields',
             })
 
     return JsonResponse({
         'success': False,
         'message': 'Invalid request.',
-        'error': 'Invalid request.',
+        'error': 'invalid_request',
     })
 
 @login_required
@@ -797,7 +797,7 @@ def get_employees_api(request):
     employee_data = []
     for emp in employees:
         employee_data.append({
-            'id': emp.id,
+            'database_id': emp.id,
             'employee_id': emp.employee_id,
             'name': emp.name,
             'designation': emp.designation,

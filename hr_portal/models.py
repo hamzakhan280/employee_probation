@@ -90,6 +90,7 @@ class Employee(models.Model):
         """Calculate the percentage of probation completed (0-100%)"""
         from datetime import date
         # Base the percentage on the actual probation window, including extensions.
+        # The minimum of 1 day avoids division by zero for incomplete or same-day records.
         total_probation_days = max((self.current_end_date - self.start_date).days, 1)
         days_completed = total_probation_days - self.days_until_probation_end
         percent = (days_completed / total_probation_days) * 100 if total_probation_days > 0 else 0
