@@ -221,7 +221,7 @@ def upload_document(request, employee_id=None):
             )
             messages.success(request, 'Document uploaded successfully!')
             if employee:
-                return redirect('employee_documents', employee_id=employee.id)
+                return redirect('employee_documents', employee_id=employee.employee_id)
             else:
                 return redirect('document_management')
         else:
@@ -797,6 +797,7 @@ def get_employees_api(request):
     employee_data = []
     for emp in employees:
         employee_data.append({
+            'id': emp.id,
             'employee_id': emp.employee_id,
             'name': emp.name,
             'designation': emp.designation,
@@ -906,7 +907,7 @@ def generate_document_from_template(request, employee_id, template_id):
         os.unlink(tmp_file_path)
 
         messages.success(request, f'Document generated from template "{template.name}" for {employee.name} successfully!')
-        return redirect('employee_documents', employee_id=employee.id)
+        return redirect('employee_documents', employee_id=employee.employee_id)
 
     return render(request, 'hr_portal/generate_from_template.html', {
         'employee': employee,
@@ -1006,7 +1007,7 @@ def probation_letter(request, employee_id):
     os.unlink(tmp_file_path)
 
     messages.success(request, f'Probation letter generated for {employee.name} successfully!')
-    return redirect('employee_documents', employee_id=employee.id)
+    return redirect('employee_documents', employee_id=employee.employee_id)
 
 @login_required
 def generate_probation_confirmation_letter(request, employee_id):
@@ -1054,7 +1055,7 @@ def generate_probation_confirmation_letter(request, employee_id):
     os.unlink(tmp_file_path)
 
     messages.success(request, f'Probation confirmation letter generated for {employee.name} successfully!')
-    return redirect('employee_documents', employee_id=employee.id)
+    return redirect('employee_documents', employee_id=employee.employee_id)
 
 @login_required
 def generate_probation_extension_letter(request, employee_id):
@@ -1102,7 +1103,7 @@ def generate_probation_extension_letter(request, employee_id):
     os.unlink(tmp_file_path)
 
     messages.success(request, f'Probation extension letter generated for {employee.name} successfully!')
-    return redirect('employee_documents', employee_id=employee.id)
+    return redirect('employee_documents', employee_id=employee.employee_id)
 
 @login_required
 def send_probation_notification_email(request):

@@ -48,16 +48,15 @@ class Employee(models.Model):
         current_end_date = self.current_end_date
 
         # Update probation status based on current date
-        if self.probation_status == self.STATUS_REJECTED:
-            self.probation_status = self.STATUS_REJECTED
-        elif self.is_extended and current_end_date >= date.today():
-            self.probation_status = self.STATUS_EXTENDED
-        elif current_end_date < date.today():
-            self.probation_status = self.STATUS_COMPLETED
-        elif self.is_probation_ending_soon:
-            self.probation_status = self.STATUS_ENDING_SOON
-        else:
-            self.probation_status = self.STATUS_ACTIVE
+        if self.probation_status != self.STATUS_REJECTED:
+            if self.is_extended and current_end_date >= date.today():
+                self.probation_status = self.STATUS_EXTENDED
+            elif current_end_date < date.today():
+                self.probation_status = self.STATUS_COMPLETED
+            elif self.is_probation_ending_soon:
+                self.probation_status = self.STATUS_ENDING_SOON
+            else:
+                self.probation_status = self.STATUS_ACTIVE
 
         super().save(*args, **kwargs)
 
@@ -90,6 +89,7 @@ class Employee(models.Model):
     def probation_completion_percent(self):
         """Calculate the percentage of probation completed (0-100%)"""
         from datetime import date
+        # Base the percentage on the actual probation window, including extensions.
         total_probation_days = max((self.current_end_date - self.start_date).days, 1)
         days_completed = total_probation_days - self.days_until_probation_end
         percent = (days_completed / total_probation_days) * 100 if total_probation_days > 0 else 0

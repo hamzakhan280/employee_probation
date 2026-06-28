@@ -1,6 +1,6 @@
 from django.apps import AppConfig
 
-MANAGEMENT_COMMANDS_TO_SKIP = {'makemigrations', 'migrate', 'collectstatic', 'test'}
+_MANAGEMENT_COMMANDS_TO_SKIP = {'makemigrations', 'migrate', 'collectstatic', 'test'}
 
 
 class HrPortalConfig(AppConfig):
@@ -12,7 +12,7 @@ class HrPortalConfig(AppConfig):
         import sys
         from django.db.utils import OperationalError, ProgrammingError
 
-        if MANAGEMENT_COMMANDS_TO_SKIP.intersection(sys.argv):
+        if _MANAGEMENT_COMMANDS_TO_SKIP.intersection(sys.argv):
             return
 
         if os.environ.get('RUN_MAIN') != 'true':  # Prevents running during migrations
