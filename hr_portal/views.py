@@ -1186,27 +1186,21 @@ def probation_approval_ajax(request, employee_id):
                 approval.approval_status = approval_status
                 approval.comments = comments
                 approval.updated_at = timezone.now()
+            if action == 'extend':
+                try:
+                    import datetime
+                    current_end_date = employee.current_end_date
+                    new_end_date = current_end_date + datetime.timedelta(days=int(extension_months) * 30)
+                    employee.extended_probation_end_date = new_end_date
+                    employee.is_extended = True
+                    employee.probation_status = 'Extended'
 
-                # Handle extension - update employee's end date
-                if action == 'extend':
-                    try:
-                        import datetime
-                        from django.utils import timezone
-                        current_end_date = employee.current_end_date
-                        new_end_date = current_end_date + datetime.timedelta(days=int(extension_months) * 30)
-                        employee.extended_probation_end_date = new_end_date
-                        employee.is_extended = True
-                        employee.probation_status = 'Extended'
-                        employee.save()
+                    approval.extension_months = int(extension_months)
+                    approval.extended_end_date = new_end_date
+                except (ValueError, TypeError):
+                    return JsonResponse({'success': False, 'message': 'Invalid extension period.'})
 
-                        # Update the approval record with extension info
-                        approval.extension_months = int(extension_months)
-                        approval.extended_end_date = new_end_date
-
-                    except (ValueError, TypeError):
-                        return JsonResponse({'success': False, 'message': 'Invalid extension period.'})
-
-                approval.save()
+            approval.save()
 
             # Update employee's probation status based on approval
             if action == 'approve':

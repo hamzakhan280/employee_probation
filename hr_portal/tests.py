@@ -9,7 +9,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, override_settings
 from django.urls import reverse
 
-from .models import Department, Employee, EmployeeDocument, ProbationApproval
+from hr_portal.models import Department, Employee, EmployeeDocument, ProbationApproval
 
 
 TEST_MEDIA_ROOT = tempfile.mkdtemp()
