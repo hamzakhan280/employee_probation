@@ -34,7 +34,13 @@ logger = logging.getLogger(__name__)
 
 
 def get_employee_by_identifier(employee_identifier):
-    """Resolve an employee from a public employee_id or numeric primary key."""
+    """
+    Resolve an employee from a public employee_id first, then fall back to a numeric PK.
+
+    Some routes receive IDs copied from spreadsheets or templates where integer-looking
+    values may be serialized with a trailing `.0`, so this helper normalizes those forms
+    before trying the database primary key as a last resort.
+    """
     normalized_identifier = str(employee_identifier).strip()
     if not normalized_identifier:
         raise Employee.DoesNotExist
@@ -719,7 +725,7 @@ def document_management(request):
 
 @login_required
 def upload_document_ajax(request):
-    """AJAX endpoint for uploading documents"""
+    """AJAX endpoint for uploading documents for a specific employee."""
     if request.method == 'POST':
         title = request.POST.get('title')
         document_type = request.POST.get('document_type', 'other')
@@ -1189,9 +1195,8 @@ def probation_approval_ajax(request, employee_id):
                 approval.updated_at = timezone.now()
             if action == 'extend':
                 try:
-                    import datetime
                     current_end_date = employee.current_end_date
-                    new_end_date = current_end_date + datetime.timedelta(days=int(extension_months) * 30)
+                    new_end_date = current_end_date + timedelta(days=int(extension_months) * 30)
                     employee.extended_probation_end_date = new_end_date
                     employee.is_extended = True
                     employee.probation_status = Employee.STATUS_EXTENDED
