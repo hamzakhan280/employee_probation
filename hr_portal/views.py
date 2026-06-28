@@ -40,15 +40,15 @@ def get_employee_by_identifier(employee_identifier):
         raise Employee.DoesNotExist
 
     candidates = [normalized_identifier]
-    numeric_identifier = None
+    float_value = None
 
     try:
-        numeric_identifier = float(normalized_identifier)
-        if numeric_identifier.is_integer():
-            integer_identifier = str(int(numeric_identifier))
+        float_value = float(normalized_identifier)
+        if float_value.is_integer():
+            integer_identifier = str(int(float_value))
             candidates.extend([integer_identifier, f"{integer_identifier}.0"])
     except (TypeError, ValueError):
-        numeric_identifier = None
+        float_value = None
 
     for candidate in dict.fromkeys(candidates):
         try:
@@ -56,8 +56,8 @@ def get_employee_by_identifier(employee_identifier):
         except Employee.DoesNotExist:
             continue
 
-    if numeric_identifier is not None and numeric_identifier.is_integer():
-        return Employee.objects.get(pk=int(numeric_identifier))
+    if float_value is not None and float_value.is_integer():
+        return Employee.objects.get(pk=int(float_value))
 
     raise Employee.DoesNotExist
 
@@ -271,7 +271,8 @@ def generate_document(request, employee_id=None):
                 'designation': employee.designation if employee else '',
                 'department': employee.department.name if employee and employee.department else '',
                 'start_date': employee.start_date if employee else '',
-                'end_date': employee.current_end_date if employee else '',
+                'end_date': employee.end_date if employee else '',
+                'current_end_date': employee.current_end_date if employee else '',
             }
 
         if not document_type:
@@ -751,7 +752,7 @@ def upload_document_ajax(request):
         else:
             return JsonResponse({
                 'success': False,
-                'message': 'Please provide an employee, title and file.',
+                'message': 'Employee, title, and file are required.',
                 'error': 'missing_required_fields',
             })
 

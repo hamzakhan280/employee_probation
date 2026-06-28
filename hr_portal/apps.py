@@ -12,7 +12,7 @@ class HrPortalConfig(AppConfig):
         import sys
         from django.db.utils import OperationalError, ProgrammingError
 
-        if _MANAGEMENT_COMMANDS_TO_SKIP.intersection(sys.argv):
+        if any(command in sys.argv for command in _MANAGEMENT_COMMANDS_TO_SKIP):
             return
 
         if os.environ.get('RUN_MAIN') != 'true':  # Prevents running during migrations
