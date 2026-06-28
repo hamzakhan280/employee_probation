@@ -16,7 +16,14 @@ from django.core.mail import send_mail
 from django.template.loader import render_to_string
 from django.utils import timezone
 from datetime import datetime, timedelta
-from hr_portal.models import Employee, EmployeeDocument, ProbationNotification
+from hr_portal.models import (
+    Department,
+    DocumentTemplate,
+    Employee,
+    EmployeeDocument,
+    ProbationApproval,
+    ProbationNotification,
+)
 from hr_portal.forms import EmployeeForm, EmployeeUploadForm
 from hr_portal.utils import generate_document_template
 import os
@@ -24,6 +31,35 @@ import json
 import logging
 
 logger = logging.getLogger(__name__)
+
+
+def get_employee_by_identifier(employee_identifier):
+    """Resolve an employee from a public employee_id or numeric primary key."""
+    normalized_identifier = str(employee_identifier).strip()
+    if not normalized_identifier:
+        raise Employee.DoesNotExist
+
+    candidates = [normalized_identifier]
+    numeric_identifier = None
+
+    try:
+        numeric_identifier = float(normalized_identifier)
+        if numeric_identifier.is_integer():
+            integer_identifier = str(int(numeric_identifier))
+            candidates.extend([integer_identifier, f"{integer_identifier}.0"])
+    except (TypeError, ValueError):
+        numeric_identifier = None
+
+    for candidate in dict.fromkeys(candidates):
+        try:
+            return Employee.objects.get(employee_id=candidate)
+        except Employee.DoesNotExist:
+            continue
+
+    if numeric_identifier is not None and numeric_identifier.is_integer():
+        return Employee.objects.get(pk=int(numeric_identifier))
+
+    raise Employee.DoesNotExist
 
 @login_required
 def dashboard(request):
@@ -100,7 +136,7 @@ def employee_list(request):
             Q(name__icontains=query) |
             Q(employee_id__icontains=query) |
             Q(designation__icontains=query) |
-            Q(department__icontains=query)
+            Q(department__name__icontains=query)
         )
 
     # Order by start_date
@@ -136,7 +172,7 @@ def add_employee(request):
 @login_required
 def edit_employee(request, employee_id):
     """Edit an existing employee"""
-    employee = Employee.objects.get(pk=employee_id)
+    employee = get_employee_by_identifier(employee_id)
     
     if request.method == 'POST':
         form = EmployeeForm(request.POST, instance=employee)
@@ -154,7 +190,7 @@ def edit_employee(request, employee_id):
 @login_required
 def delete_employee(request, employee_id):
     """Delete an employee"""
-    employee = Employee.objects.get(pk=employee_id)
+    employee = get_employee_by_identifier(employee_id)
     if request.method == 'POST':
         employee.delete()
         messages.success(request, f'Employee {employee.name} deleted successfully!')
@@ -167,7 +203,7 @@ def upload_document(request, employee_id=None):
     """Upload a document for an employee or general document"""
     employee = None
     if employee_id:
-        employee = Employee.objects.get(pk=employee_id)
+        employee = get_employee_by_identifier(employee_id)
 
     if request.method == 'POST':
         title = request.POST.get('title')
@@ -187,7 +223,7 @@ def upload_document(request, employee_id=None):
             if employee:
                 return redirect('employee_documents', employee_id=employee.id)
             else:
-                return redirect('documents')
+                return redirect('document_management')
         else:
             messages.error(request, 'Please provide a title and file.')
     else:
@@ -201,14 +237,11 @@ def upload_document(request, employee_id=None):
 @login_required
 def employee_documents(request, employee_id):
     """View documents for a specific employee"""
-    # Convert employee_id to integer if it's a float (e.g., "67.0" -> 67)
     try:
-        employee_id = int(float(employee_id))  # Handles both "67" and "67.0"
-    except (ValueError, TypeError):
+        employee = get_employee_by_identifier(employee_id)
+    except Employee.DoesNotExist:
         messages.error(request, 'Invalid employee ID.')
         return redirect('employee_list')
-
-    employee = Employee.objects.get(pk=employee_id)
     documents = EmployeeDocument.objects.filter(employee=employee).order_by('-uploaded_at')
 
     return render(request, 'hr_portal/employee_documents.html', {
@@ -217,75 +250,39 @@ def employee_documents(request, employee_id):
     })
 
 @login_required
-def generate_document(request, employee_id):
-    """Generate a document for an employee using AI"""
-    # Convert employee_id to integer if it's a float (e.g., "67.0" -> 67)
+def generate_document(request, employee_id=None):
+    """Generate a document preview from API input or for a specific employee."""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Invalid request method'})
+
     try:
-        employee_id = int(float(employee_id))  # Handles both "67" and "67.0"
-    except (ValueError, TypeError):
-        messages.error(request, 'Invalid employee ID.')
-        return redirect('employee_list')
-
-    employee = Employee.objects.get(pk=employee_id)
-
-    if request.method == 'POST':
-        document_type = request.POST.get('document_type')
-        additional_info = request.POST.get('additional_info', '')
-
-        # In a real implementation, this would call an AI service
-        # For now, we'll just simulate document generation
-        try:
-            # Get employee data
+        if request.content_type == 'application/json':
+            payload = json.loads(request.body or '{}')
+            document_type = payload.get('document_type')
+            employee_data = payload.get('employee_data', {})
+            additional_info = payload.get('additional_info', '')
+        else:
+            document_type = request.POST.get('document_type')
+            additional_info = request.POST.get('additional_info', '')
+            employee = get_employee_by_identifier(employee_id) if employee_id is not None else None
             employee_data = {
-                'name': employee.name,
-                'employee_id': employee.employee_id,
-                'designation': employee.designation,
-                'department': employee.department.name if employee.department else 'N/A',
-                'start_date': employee.start_date,
-                'end_date': employee.end_date if employee.end_date else 'N/A',
+                'name': employee.name if employee else '',
+                'employee_id': employee.employee_id if employee else '',
+                'designation': employee.designation if employee else '',
+                'department': employee.department.name if employee and employee.department else '',
+                'start_date': employee.start_date if employee else '',
+                'end_date': employee.current_end_date if employee else '',
             }
 
-            # Create document content based on type
-            if document_type == 'service_certificate':
-                content = f"SERVICE CERTIFICATE\n\nThis is to certify that {employee.name} with employee ID {employee.employee_id} has served at GIK Institute in the capacity of {employee.designation} in the {employee.department.name if employee.department else 'N/A'} department."
-            elif document_type == 'experience_certificate':
-                content = f"EXPERIENCE CERTIFICATE\n\nThis is to certify the work experience of {employee.name} with employee ID {employee.employee_id} who worked as {employee.designation} in the {employee.department.name if employee.department else 'N/A'} department at GIK Institute."
-            elif document_type == 'relieving_letter':
-                content = f"RELIEVING LETTER\n\nThis letter serves as a relieving letter for {employee.name} with employee ID {employee.employee_id} from their position as {employee.designation} in the {employee.department.name if employee.department else 'N/A'} department at GIK Institute."
-            else:
-                content = f"DOCUMENT\n\nThis is a generated document for {employee.name} with employee ID {employee.employee_id}."
+        if not document_type:
+            return JsonResponse({'success': False, 'error': 'Document type is required'})
 
-            # For now, we'll save this as a text file
-            from django.core.files.base import ContentFile
-            import tempfile
-            import os
-
-            # Create a temporary file with the content
-            with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.txt') as tmp_file:
-                tmp_file.write(content)
-                tmp_file_path = tmp_file.name
-
-            # Create an EmployeeDocument object
-            from django.core.files import File
-            with open(tmp_file_path, 'rb') as f:
-                doc = EmployeeDocument.objects.create(
-                    employee=employee,
-                    title=f"{document_type.replace('_', ' ').title()} - {employee.name}",
-                    document_type='other',
-                    description=f"AI-generated {document_type.replace('_', ' ')} for {employee.name}",
-                )
-                doc.file.save(f"{document_type}_{employee.employee_id}.txt", File(f))
-
-            # Clean up the temporary file
-            os.unlink(tmp_file_path)
-
-            messages.success(request, f'{document_type.replace("_", " ").title()} generated and saved successfully!')
-            return redirect('employee_documents', employee_id=employee.id)
-
-        except Exception as e:
-            messages.error(request, f'Error generating document: {str(e)}')
-
-    return render(request, 'hr_portal/generate_document.html', {'employee': employee})
+        prompt = create_document_prompt(document_type, employee_data, additional_info)
+        return JsonResponse({'success': True, 'document': prompt.strip()})
+    except Employee.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Employee not found'})
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'error': 'Invalid JSON payload'})
 
 @login_required
 def documents(request):
@@ -590,14 +587,11 @@ def export_employees_to_excel(request):
 @login_required
 def employee_edit(request, employee_id):
     """Edit an existing employee"""
-    # Convert employee_id to integer if it's a float (e.g., "67.0" -> 67)
     try:
-        employee_id = int(float(employee_id))  # Handles both "67" and "67.0"
-    except (ValueError, TypeError):
+        employee = get_employee_by_identifier(employee_id)
+    except Employee.DoesNotExist:
         messages.error(request, 'Invalid employee ID.')
         return redirect('employee_list')
-
-    employee = Employee.objects.get(pk=employee_id)
 
     if request.method == 'POST':
         form = EmployeeForm(request.POST, instance=employee)
@@ -661,14 +655,11 @@ def employee_delete(request, employee_id):
 @login_required
 def send_department_email(request, employee_id):
     """Send department email for an employee"""
-    # Convert employee_id to integer if it's a float (e.g., "67.0" -> 67)
     try:
-        employee_id = int(float(employee_id))  # Handles both "67" and "67.0"
-    except (ValueError, TypeError):
+        employee = get_employee_by_identifier(employee_id)
+    except Employee.DoesNotExist:
         messages.error(request, 'Invalid employee ID.')
         return redirect('employee_list')
-
-    employee = Employee.objects.get(pk=employee_id)
 
     if request.method == 'POST':
         # Get department email
@@ -719,21 +710,25 @@ def send_department_email(request, employee_id):
 def document_management(request):
     """Manage all documents"""
     documents = EmployeeDocument.objects.all().order_by('-uploaded_at')
-    return render(request, 'hr_portal/document_management.html', {'documents': documents})
+    employees = Employee.objects.all().order_by('name')
+    return render(request, 'hr_portal/document_management.html', {
+        'documents': documents,
+        'employees': employees,
+    })
 
 @login_required
 def upload_document_ajax(request):
     """AJAX endpoint for uploading documents"""
-    if request.method == 'POST' and request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+    if request.method == 'POST':
         title = request.POST.get('title')
         document_type = request.POST.get('document_type', 'other')
         description = request.POST.get('description', '')
         employee_id = request.POST.get('employee_id')
         file = request.FILES.get('file')
 
-        if file and title:
+        if employee_id and file and title:
             try:
-                employee = Employee.objects.get(pk=employee_id) if employee_id else None
+                employee = get_employee_by_identifier(employee_id)
                 document = EmployeeDocument.objects.create(
                     employee=employee,
                     title=title,
@@ -750,17 +745,20 @@ def upload_document_ajax(request):
             except Employee.DoesNotExist:
                 return JsonResponse({
                     'success': False,
-                    'message': 'Employee not found.'
+                    'message': 'Employee not found.',
+                    'error': 'Employee not found.',
                 })
         else:
             return JsonResponse({
                 'success': False,
-                'message': 'Please provide a title and file.'
+                'message': 'Please provide an employee, title and file.',
+                'error': 'Please provide an employee, title and file.',
             })
 
     return JsonResponse({
         'success': False,
-        'message': 'Invalid request.'
+        'message': 'Invalid request.',
+        'error': 'Invalid request.',
     })
 
 @login_required
@@ -782,10 +780,10 @@ def download_document(request, document_id):
             return response
         else:
             messages.error(request, 'Document file not found.')
-            return redirect('documents')
+            return redirect('document_management')
     else:
         messages.error(request, 'No file associated with this document.')
-        return redirect('documents')
+        return redirect('document_management')
 
 @login_required
 def ai_assistant(request):
@@ -800,6 +798,7 @@ def get_employees_api(request):
     for emp in employees:
         employee_data.append({
             'id': emp.employee_id,
+            'employee_id': emp.employee_id,
             'name': emp.name,
             'designation': emp.designation,
             'department': emp.department.name if emp.department else 'N/A',
@@ -865,7 +864,7 @@ def template_content_edit(request, template_id):
 @login_required
 def generate_document_from_template(request, employee_id, template_id):
     """Generate a document from a template for an employee"""
-    employee = Employee.objects.get(pk=employee_id)
+    employee = get_employee_by_identifier(employee_id)
     template = DocumentTemplate.objects.get(pk=template_id)
 
     # This would typically generate a document using the template
@@ -918,14 +917,11 @@ def generate_document_from_template(request, employee_id, template_id):
 @login_required
 def probation_approval(request, employee_id):
     """Handle probation approval for an employee"""
-    # Convert employee_id to integer if it's a float (e.g., "67.0" -> 67)
     try:
-        employee_id = int(float(employee_id))  # Handles both "67" and "67.0"
-    except (ValueError, TypeError):
+        employee = get_employee_by_identifier(employee_id)
+    except Employee.DoesNotExist:
         messages.error(request, 'Invalid employee ID.')
         return redirect('employee_list')
-
-    employee = Employee.objects.get(pk=employee_id)
 
     if request.method == 'POST':
         approval_status = request.POST.get('approval_status')
@@ -955,14 +951,11 @@ def probation_approval(request, employee_id):
 @login_required
 def probation_noting(request, employee_id):
     """Handle probation noting for an employee"""
-    # Convert employee_id to integer if it's a float (e.g., "67.0" -> 67)
     try:
-        employee_id = int(float(employee_id))  # Handles both "67" and "67.0"
-    except (ValueError, TypeError):
+        employee = get_employee_by_identifier(employee_id)
+    except Employee.DoesNotExist:
         messages.error(request, 'Invalid employee ID.')
         return redirect('employee_list')
-
-    employee = Employee.objects.get(pk=employee_id)
 
     # This would typically handle noting of probation status
     messages.info(request, f'Probation noting functionality for {employee.name} would be implemented here.')
@@ -971,14 +964,11 @@ def probation_noting(request, employee_id):
 @login_required
 def probation_letter(request, employee_id):
     """Generate probation letter for an employee"""
-    # Convert employee_id to integer if it's a float (e.g., "67.0" -> 67)
     try:
-        employee_id = int(float(employee_id))  # Handles both "67" and "67.0"
-    except (ValueError, TypeError):
+        employee = get_employee_by_identifier(employee_id)
+    except Employee.DoesNotExist:
         messages.error(request, 'Invalid employee ID.')
         return redirect('employee_list')
-
-    employee = Employee.objects.get(pk=employee_id)
 
     # This would typically generate a probation letter
     content = f"""
@@ -1022,14 +1012,11 @@ def probation_letter(request, employee_id):
 @login_required
 def generate_probation_confirmation_letter(request, employee_id):
     """Generate probation confirmation letter for an employee"""
-    # Convert employee_id to integer if it's a float (e.g., "67.0" -> 67)
     try:
-        employee_id = int(float(employee_id))  # Handles both "67" and "67.0"
-    except (ValueError, TypeError):
+        employee = get_employee_by_identifier(employee_id)
+    except Employee.DoesNotExist:
         messages.error(request, 'Invalid employee ID.')
         return redirect('employee_list')
-
-    employee = Employee.objects.get(pk=employee_id)
 
     # This would typically generate a confirmation letter
     content = f"""
@@ -1073,14 +1060,11 @@ def generate_probation_confirmation_letter(request, employee_id):
 @login_required
 def generate_probation_extension_letter(request, employee_id):
     """Generate probation extension letter for an employee"""
-    # Convert employee_id to integer if it's a float (e.g., "67.0" -> 67)
     try:
-        employee_id = int(float(employee_id))  # Handles both "67" and "67.0"
-    except (ValueError, TypeError):
+        employee = get_employee_by_identifier(employee_id)
+    except Employee.DoesNotExist:
         messages.error(request, 'Invalid employee ID.')
         return redirect('employee_list')
-
-    employee = Employee.objects.get(pk=employee_id)
 
     # This would typically generate an extension letter
     content = f"""
@@ -1169,16 +1153,10 @@ def send_probation_notification_email(request):
 def probation_approval_ajax(request, employee_id):
     """AJAX endpoint for probation approval"""
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-        # Convert employee_id to integer if it's a float (e.g., "67.0" -> 67)
         try:
-            employee_id = int(float(employee_id))  # Handles both "67" and "67.0"
-        except (ValueError, TypeError):
-            return JsonResponse({'success': False, 'message': 'Invalid employee ID.'})
-
-        try:
-            employee = Employee.objects.get(pk=employee_id)
+            employee = get_employee_by_identifier(employee_id)
         except Employee.DoesNotExist:
-            return JsonResponse({'success': False, 'message': 'Employee not found.'})
+            return JsonResponse({'success': False, 'message': 'Invalid employee ID.'})
 
         if request.method == 'POST':
             action = request.POST.get('action', '').lower()
@@ -1214,10 +1192,11 @@ def probation_approval_ajax(request, employee_id):
                     try:
                         import datetime
                         from django.utils import timezone
-                        current_end_date = employee.end_date
+                        current_end_date = employee.current_end_date
                         new_end_date = current_end_date + datetime.timedelta(days=int(extension_months) * 30)
-                        employee.end_date = new_end_date
+                        employee.extended_probation_end_date = new_end_date
                         employee.is_extended = True
+                        employee.probation_status = 'Extended'
                         employee.save()
 
                         # Update the approval record with extension info

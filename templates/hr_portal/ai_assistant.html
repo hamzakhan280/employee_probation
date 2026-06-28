@@ -84,7 +84,7 @@
         .then(response => response.json())
         .then(data => {
             const select = document.getElementById('employee-select');
-            data.forEach(emp => {
+            (data.employees || []).forEach(emp => {
                 const option = document.createElement('option');
                 option.value = JSON.stringify(emp);
                 option.textContent = `${emp.name} (${emp.employee_id})`;
