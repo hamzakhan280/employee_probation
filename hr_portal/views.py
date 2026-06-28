@@ -277,7 +277,7 @@ def generate_document(request, employee_id=None):
         if not document_type:
             return JsonResponse({'success': False, 'error': 'Document type is required'})
 
-        prompt = create_document_prompt(document_type, employee_data, additional_info)
+        prompt = generate_document_template(document_type, employee_data, additional_info)
         return JsonResponse({'success': True, 'document': prompt.strip()})
     except Employee.DoesNotExist:
         return JsonResponse({'success': False, 'error': 'Employee not found'})

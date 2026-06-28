@@ -48,7 +48,7 @@ class Employee(models.Model):
         current_end_date = self.current_end_date
 
         # Update probation status based on current date
-        if self.probation_status != self.STATUS_REJECTED:
+        if self.probation_status not in {self.STATUS_REJECTED, self.STATUS_COMPLETED}:
             if self.is_extended and current_end_date >= date.today():
                 self.probation_status = self.STATUS_EXTENDED
             elif current_end_date < date.today():
